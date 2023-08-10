@@ -78,7 +78,9 @@ router.put("/:code", async function(req, res, next) {
   if (req.body === undefined ||
       req.body.code ||
       req.body.name === undefined ||
-      req.body.description === undefined){throw new BadRequestError()};
+      req.body.description === undefined){
+        throw new BadRequestError();
+  }
 
   const code = req.params.code;
   const results = await db.query(
@@ -96,17 +98,37 @@ router.put("/:code", async function(req, res, next) {
 
   const updatedCompany = results.rows[0]
 
-  return res.json({ updatedCompany });
+  return res.json({ updatedCompany }); // company: updatedCompany
 })
 
 
+/**
+ * DELETE /[code]
+ * Deletes company.
+ * Returns 404 if company cannot be found.
+ * Returns {status: "deleted"}
+ */
 
-// DELETE /companies/[code]
-// Deletes company.
+router.delete("/:code", async function(req, res, next) {
+  const code = req.params.code;
 
-// Should return 404 if company cannot be found.
+  const results = await db.query(
+    `DELETE
+        FROM companies
+        WHERE code=$1
+        RETURNING code`,
+    [code]
+  )
 
-// Returns {status: "deleted"}
+  if (results.rows.length === 0) {
+    throw new NotFoundError(`No matching company: ${code}`)
+  }
+
+  // const deletedCompany = results.rows[0];
+  // console.log("deletedCompany", deletedCompany);
+
+  return res.json({status: "deleted"});
+})
 
 
 module.exports = router;

@@ -7,46 +7,99 @@ const { NotFoundError, BadRequestError } = require("../expressError");
 const router = new express.Router();
 
 
-/**
- * GET /companies
+/** GET "/""
  * Returns list of companies, like {companies: [{code, name}, ...]}
  * */
 
 router.get("/", async function(req, res, next) {
   const results = await db.query(
     `SELECT code, name
-        FROM companies`);
+        FROM companies`
+    );
   const companies = results.rows;
-  console.log("companies", companies);
+
   return res.json({ companies });
 })
 
 
+/** GET /[code]
+ * Return obj of company: {company: {code, name, description}}
+ *
+ * If the company given cannot be found, return a 404 status response.
+*/
+router.get("/:code", async function(req, res, next) {
+  const code = req.params.code;
+  const results = await db.query(
+    `SELECT code, name, description
+        FROM companies
+        WHERE code = $1`,
+    [code]
+    );
+
+  if (results.rows.length === 0){
+    throw new NotFoundError(`No matching company: ${code}`)
+  }
+
+  const company = results.rows[0];
+
+  return res.json({ company });
+})
 
 
+/**POST /
+ * Adds a company with posted JSON.
+ * ex => {code, name, description}
+ *
+ * Returns obj of new company: {company: {code, name, description}}
+*/
+router.post("/", async function(req, res, next) {
+  if (req.body === undefined) throw new BadRequestError();
+
+  const results = await db.query(
+    `INSERT INTO companies
+        VALUES ($1, $2, $3)
+        RETURNING code, name, description`,
+    [req.body.code, req.body.name, req.body.description]
+  );
+  const company = results.rows[0];
+
+  return res.status(201).json({ company })
+})
 
 
+/**PUT /[code]
+ * Edit existing company with posted JSON.
+ * ex => {name, description}
+ *
+ * Returns updated company: {company: {code, name, description}}
+ * Returns 404 if company cannot be found.
+*/
+router.put("/:code", async function(req, res, next) {
+  if (req.body === undefined ||
+      req.body.code ||
+      req.body.name === undefined ||
+      req.body.description === undefined){throw new BadRequestError()};
 
-// GET /companies/[code]
-// Return obj of company: {company: {code, name, description}}
+  const code = req.params.code;
+  const results = await db.query(
+    `UPDATE companies
+        SET name=$1,
+            description=$2
+        WHERE code=$3
+        RETURNING code, name, description`,
+    [req.body.name, req.body.description, code]
+  )
 
-// If the company given cannot be found, this should return a 404 status response.
+  if (results.rows.length === 0) {
+    throw new NotFoundError(`No matching company: ${code}`)
+  }
 
-// POST /companies
-// Adds a company.
+  const updatedCompany = results.rows[0]
 
-// Needs to be given JSON like: {code, name, description}
+  return res.json({ updatedCompany });
+})
 
-// Returns obj of new company: {company: {code, name, description}}
 
-// PUT /companies/[code]
-// Edit existing company.
-
-// Should return 404 if company cannot be found.
-
-// Needs to be given JSON like: {name, description}
-
-// Returns update company object: {company: {code, name, description}}
 
 // DELETE /companies/[code]
 // Deletes company.

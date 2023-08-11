@@ -10,7 +10,7 @@ const router = new express.Router();
  * Return info on invoices: like {invoices: [{id, comp_code}, ...]}
  * */
 router.get("/", async function (req, res, next) {
-  const results = await db.query(
+  const results = await db.query( // orderby
     `SELECT id, comp_code
         FROM invoices`
   );
@@ -22,7 +22,8 @@ router.get("/", async function (req, res, next) {
 
 /** GET /[id]
  * Return obj on given invoice: {invoices: [{id, comp_code}, ...]}
- *
+ * Returns
+ * {invoice: {id, amt, paid, add_date, paid_date, company: {code, name, description}}
  * If the invoice cannot be found, return a 404 status response.
 */
 router.get("/:id", async function (req, res, next) {
@@ -40,13 +41,13 @@ router.get("/:id", async function (req, res, next) {
         FROM invoices
         WHERE id = $1`,
     [id]
-  )
+  );
 
-  if (invoiceResults.rows[0] === undefined){
-    throw new NotFoundError(`No matching invoice id: ${id}`)
+  if (invoiceResults.rows[0] === undefined){ // move to l38
+    throw new NotFoundError(`No matching invoice id: ${id}`);
   }
 
-  const compCode = getCompCode.rows[0].comp_code
+  const compCode = getCompCode.rows[0].comp_code;
 
   const company = await db.query(
     `SELECT code, name, description
@@ -56,7 +57,7 @@ router.get("/:id", async function (req, res, next) {
     );
 
   const invoice = invoiceResults.rows[0];
-  invoice.company = company.rows[0]
+  invoice.company = company.rows[0];
 
   return res.json({ invoice });
 });
@@ -71,25 +72,14 @@ router.get("/:id", async function (req, res, next) {
 router.post("/", async function (req, res, next) {
   if (req.body === undefined) throw new BadRequestError();
 
-  const iResults = await db.query(
+  const invoiceResults = await db.query(
     `INSERT INTO invoices (comp_code, amt)
         VALUES ($1, $2)
         RETURNING id, comp_code, amt, paid, add_date, paid_date`,
     [req.body.comp_code, req.body.amt]
   );
 
-  // const cResults = await db.query(
-  //   `SELECT code, name, description
-  //       FROM companies
-  //       WHERE code = $1`,
-  //   [req.body.comp_code]
-  //   );
-
-  // if (cResults.rows[0] === undefined){
-  //   throw new BadRequestError(`Cannot create invoice for: ${req.body.comp_code}`)
-  // }
-
-  const invoice = iResults.rows[0];
+  const invoice = invoiceResults.rows[0];
 
   return res.status(201).json({ invoice });
 });
@@ -121,38 +111,40 @@ router.put("/:id", async function (req, res, next) {
     throw new NotFoundError(`No matching invoice with id: ${id}`);
   }
 
-
   return res.json({ invoice });
 });
 
 
 /**
- * DELETE /[code]
- * Deletes company.
- * Returns 404 if company cannot be found.
+ * DELETE /[id]
+ * Deletes invoice.
+ * Returns 404 if invoice cannot be found.
  * Returns {status: "deleted"}
  */
 
-router.delete("/:code", async function (req, res, next) {
-  const code = req.params.code;
+router.delete("/:id", async function (req, res, next) {
+  const id = req.params.id;
+  console.log(req.params);
 
   const results = await db.query(
     `DELETE
-        FROM companies
-        WHERE code=$1
-        RETURNING code`,
-    [code]
+        FROM invoices
+        WHERE id=$1
+        RETURNING id`,
+    [id]
   );
 
   if (results.rows.length === 0) {
-    throw new NotFoundError(`No matching company: ${code}`);
+    throw new NotFoundError(`No matching invoices with id: ${id}`);
   }
-
-  // const deletedCompany = results.rows[0];
-  // console.log("deletedCompany", deletedCompany);
 
   return res.json({ status: "deleted" });
 });
+
+
+
+
+
 
 
 module.exports = router;

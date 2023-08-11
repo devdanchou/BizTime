@@ -96,9 +96,9 @@ router.put("/:code", async function(req, res, next) {
     throw new NotFoundError(`No matching company: ${code}`)
   }
 
-  const updatedCompany = results.rows[0]
+  const company = results.rows[0]
 
-  return res.json({ updatedCompany }); // company: updatedCompany
+  return res.json({ company }); // company: updatedCompany
 })
 
 
